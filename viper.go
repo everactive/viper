@@ -44,11 +44,11 @@ import (
 	"github.com/subosito/gotenv"
 	"gopkg.in/ini.v1"
 
-	"github.com/spf13/viper/internal/encoding"
-	"github.com/spf13/viper/internal/encoding/hcl"
-	"github.com/spf13/viper/internal/encoding/json"
-	"github.com/spf13/viper/internal/encoding/toml"
-	"github.com/spf13/viper/internal/encoding/yaml"
+	"github.com/everactive/viper/internal/encoding"
+	"github.com/everactive/viper/internal/encoding/hcl"
+	"github.com/everactive/viper/internal/encoding/json"
+	"github.com/everactive/viper/internal/encoding/toml"
+	"github.com/everactive/viper/internal/encoding/yaml"
 )
 
 // ConfigMarshalError happens when failing to marshal the configuration.
@@ -216,6 +216,7 @@ func DecodeHook(hook mapstructure.DecodeHookFunc) DecoderConfigOption {
 //
 // Note: Vipers are not safe for concurrent Get() and Set() operations.
 type Viper struct {
+	mutex sync.RWMutex
 	// Delimiter that separates a list of keys
 	// used to access a nested value in one go
 	keyDelim string
@@ -813,6 +814,8 @@ func (v *Viper) isPathShadowedInAutoEnv(path []string) string {
 func SetTypeByDefaultValue(enable bool) { v.SetTypeByDefaultValue(enable) }
 
 func (v *Viper) SetTypeByDefaultValue(enable bool) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	v.typeByDefValue = enable
 }
 
@@ -831,6 +834,8 @@ func GetViper() *Viper {
 func Get(key string) interface{} { return v.Get(key) }
 
 func (v *Viper) Get(key string) interface{} {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	lcaseKey := strings.ToLower(key)
 	val := v.find(lcaseKey, true)
 	if val == nil {
@@ -1115,6 +1120,8 @@ func (v *Viper) BindFlagValues(flags FlagValueSet) (err error) {
 func BindFlagValue(key string, flag FlagValue) error { return v.BindFlagValue(key, flag) }
 
 func (v *Viper) BindFlagValue(key string, flag FlagValue) error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	if flag == nil {
 		return fmt.Errorf("flag for %q is nil", key)
 	}
@@ -1131,6 +1138,8 @@ func (v *Viper) BindFlagValue(key string, flag FlagValue) error {
 func BindEnv(input ...string) error { return v.BindEnv(input...) }
 
 func (v *Viper) BindEnv(input ...string) error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	if len(input) == 0 {
 		return fmt.Errorf("missing key to bind to")
 	}
@@ -1329,6 +1338,8 @@ func stringToStringConv(val string) interface{} {
 func IsSet(key string) bool { return v.IsSet(key) }
 
 func (v *Viper) IsSet(key string) bool {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	lcaseKey := strings.ToLower(key)
 	val := v.find(lcaseKey, false)
 	return val != nil
@@ -1339,6 +1350,8 @@ func (v *Viper) IsSet(key string) bool {
 func AutomaticEnv() { v.AutomaticEnv() }
 
 func (v *Viper) AutomaticEnv() {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	v.automaticEnvApplied = true
 }
 
@@ -1348,6 +1361,8 @@ func (v *Viper) AutomaticEnv() {
 func SetEnvKeyReplacer(r *strings.Replacer) { v.SetEnvKeyReplacer(r) }
 
 func (v *Viper) SetEnvKeyReplacer(r *strings.Replacer) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	v.envKeyReplacer = r
 }
 
@@ -1356,6 +1371,8 @@ func (v *Viper) SetEnvKeyReplacer(r *strings.Replacer) {
 func RegisterAlias(alias string, key string) { v.RegisterAlias(alias, key) }
 
 func (v *Viper) RegisterAlias(alias string, key string) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	v.registerAlias(alias, strings.ToLower(key))
 }
 
@@ -1404,6 +1421,8 @@ func (v *Viper) realKey(key string) string {
 func InConfig(key string) bool { return v.InConfig(key) }
 
 func (v *Viper) InConfig(key string) bool {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	// if the requested key is an alias, then return the proper key
 	key = v.realKey(key)
 
@@ -1417,6 +1436,8 @@ func (v *Viper) InConfig(key string) bool {
 func SetDefault(key string, value interface{}) { v.SetDefault(key, value) }
 
 func (v *Viper) SetDefault(key string, value interface{}) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	// If alias passed in, then set the proper default
 	key = v.realKey(strings.ToLower(key))
 	value = toCaseInsensitiveValue(value)
@@ -1436,6 +1457,8 @@ func (v *Viper) SetDefault(key string, value interface{}) {
 func Set(key string, value interface{}) { v.Set(key, value) }
 
 func (v *Viper) Set(key string, value interface{}) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	// If alias passed in, then set the proper override
 	key = v.realKey(strings.ToLower(key))
 	value = toCaseInsensitiveValue(value)
@@ -1453,6 +1476,8 @@ func (v *Viper) Set(key string, value interface{}) {
 func ReadInConfig() error { return v.ReadInConfig() }
 
 func (v *Viper) ReadInConfig() error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	jww.INFO.Println("Attempting to read in config file")
 	filename, err := v.getConfigFile()
 	if err != nil {
@@ -1484,6 +1509,8 @@ func (v *Viper) ReadInConfig() error {
 func MergeInConfig() error { return v.MergeInConfig() }
 
 func (v *Viper) MergeInConfig() error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	jww.INFO.Println("Attempting to merge in config file")
 	filename, err := v.getConfigFile()
 	if err != nil {
@@ -1507,6 +1534,8 @@ func (v *Viper) MergeInConfig() error {
 func ReadConfig(in io.Reader) error { return v.ReadConfig(in) }
 
 func (v *Viper) ReadConfig(in io.Reader) error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	v.config = make(map[string]interface{})
 	return v.unmarshalReader(in, v.config)
 }
@@ -1527,6 +1556,8 @@ func (v *Viper) MergeConfig(in io.Reader) error {
 func MergeConfigMap(cfg map[string]interface{}) error { return v.MergeConfigMap(cfg) }
 
 func (v *Viper) MergeConfigMap(cfg map[string]interface{}) error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
 	if v.config == nil {
 		v.config = make(map[string]interface{})
 	}
@@ -1539,6 +1570,8 @@ func (v *Viper) MergeConfigMap(cfg map[string]interface{}) error {
 func WriteConfig() error { return v.WriteConfig() }
 
 func (v *Viper) WriteConfig() error {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	filename, err := v.getConfigFile()
 	if err != nil {
 		return err
@@ -1550,6 +1583,8 @@ func (v *Viper) WriteConfig() error {
 func SafeWriteConfig() error { return v.SafeWriteConfig() }
 
 func (v *Viper) SafeWriteConfig() error {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	if len(v.configPaths) < 1 {
 		return errors.New("missing configuration for 'configPath'")
 	}
@@ -1560,6 +1595,8 @@ func (v *Viper) SafeWriteConfig() error {
 func WriteConfigAs(filename string) error { return v.WriteConfigAs(filename) }
 
 func (v *Viper) WriteConfigAs(filename string) error {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	return v.writeConfig(filename, true)
 }
 
@@ -1567,6 +1604,8 @@ func (v *Viper) WriteConfigAs(filename string) error {
 func SafeWriteConfigAs(filename string) error { return v.SafeWriteConfigAs(filename) }
 
 func (v *Viper) SafeWriteConfigAs(filename string) error {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	alreadyExists, err := afero.Exists(v.fs, filename)
 	if alreadyExists && err == nil {
 		return ConfigFileAlreadyExistsError(filename)
@@ -1932,6 +1971,8 @@ func (v *Viper) watchRemoteConfig(provider RemoteProvider) (map[string]interface
 func AllKeys() []string { return v.AllKeys() }
 
 func (v *Viper) AllKeys() []string {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	m := map[string]bool{}
 	// add all paths, by order of descending priority to ensure correct shadowing
 	m = v.flattenAndMergeMap(m, castMapStringToMapInterface(v.aliases), "")
@@ -2013,6 +2054,8 @@ outer:
 func AllSettings() map[string]interface{} { return v.AllSettings() }
 
 func (v *Viper) AllSettings() map[string]interface{} {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	m := map[string]interface{}{}
 	// start from the list of keys, and construct the map one value at a time
 	for _, k := range v.AllKeys() {
@@ -2141,6 +2184,8 @@ func (v *Viper) findConfigFile() (string, error) {
 func Debug() { v.Debug() }
 
 func (v *Viper) Debug() {
+	v.mutex.RLock()
+	defer v.mutex.RUnlock()
 	fmt.Printf("Aliases:\n%#v\n", v.aliases)
 	fmt.Printf("Override:\n%#v\n", v.override)
 	fmt.Printf("PFlags:\n%#v\n", v.pflags)
