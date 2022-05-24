@@ -34,12 +34,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/afero"
-	"github.com/spf13/cast"
-	"github.com/spf13/pflag"
-
 	"github.com/everactive/viper/internal/encoding"
 	"github.com/everactive/viper/internal/encoding/dotenv"
 	"github.com/everactive/viper/internal/encoding/hcl"
@@ -48,6 +42,11 @@ import (
 	"github.com/everactive/viper/internal/encoding/json"
 	"github.com/everactive/viper/internal/encoding/toml"
 	"github.com/everactive/viper/internal/encoding/yaml"
+	"github.com/fsnotify/fsnotify"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/afero"
+	"github.com/spf13/cast"
+	"github.com/spf13/pflag"
 )
 
 // ConfigMarshalError happens when failing to marshal the configuration.
@@ -1563,7 +1562,6 @@ func (v *Viper) ReadInConfig() error {
 func MergeInConfig() error { return v.MergeInConfig() }
 
 func (v *Viper) MergeInConfig() error {
-
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	v.logger.Info("attempting to merge in config file")
