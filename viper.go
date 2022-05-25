@@ -202,6 +202,8 @@ type Viper struct {
 	// Specific commands for ini parsing
 	iniLoadOptions ini.LoadOptions
 
+	overriders []Overrider
+
 	automaticEnvApplied bool
 	envKeyReplacer      StringReplacer
 	allowEmptyEnv       bool
@@ -224,6 +226,12 @@ type Viper struct {
 	decoderRegistry *encoding.DecoderRegistry
 }
 
+// Overrider allows dynamic parameter loading into the viper instance with the function Get().
+// If Get() returns nil, the override is discarded and parameter search continues
+type Overrider interface {
+	Get(lowerCaseKey string) interface{}
+}
+
 // New returns an initialized Viper instance.
 func New() *Viper {
 	v := new(Viper)
@@ -233,6 +241,7 @@ func New() *Viper {
 	v.fs = afero.NewOsFs()
 	v.config = make(map[string]interface{})
 	v.override = make(map[string]interface{})
+	v.overriders = []Overrider{}
 	v.defaults = make(map[string]interface{})
 	v.kvstore = make(map[string]interface{})
 	v.pflags = make(map[string]FlagValue)
@@ -1280,6 +1289,15 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) interface{} {
 		return nil
 	}
 
+	if v.overriders != nil && len(v.overriders) != 0 {
+		for i := len(v.overriders) - 1; i >= 0; i-- {
+			overrider := v.overriders[i]
+			if val := overrider.Get(lcaseKey); val != nil {
+				return val
+			}
+		}
+	}
+
 	// Env override next
 	if v.automaticEnvApplied {
 		// even if it hasn't been registered, if automaticEnv is used,
@@ -1404,6 +1422,16 @@ func (v *Viper) IsSet(key string) bool {
 	lcaseKey := strings.ToLower(key)
 	val := v.find(lcaseKey, false)
 	return val != nil
+}
+
+func AddOverrider(o Overrider) { v.AddOverrider(o) }
+
+func (v *Viper) AddOverrider(o Overrider) {
+	if v.overriders == nil {
+		v.overriders = []Overrider{}
+	}
+
+	v.overriders = append(v.overriders, o)
 }
 
 // AutomaticEnv makes Viper check if environment variables match any of the existing keys
