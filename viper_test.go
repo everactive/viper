@@ -2281,6 +2281,110 @@ func TestCaseInsensitiveSet(t *testing.T) {
 	}
 }
 
+type overrider struct {
+	Key string
+	Val interface{}
+}
+
+func (o *overrider) Get(key string) interface{} {
+	if o.Key == key {
+		return o.Val
+	}
+	return nil
+}
+
+func TestOverridersOrder(t *testing.T) {
+	Reset()
+
+	key := "key"
+	def := "qwerty"
+	SetDefault(key, def)
+	assert.Equal(t, def, Get(key))
+
+	oFirst := &overrider{
+		Key: key,
+	}
+	AddOverrider(oFirst)
+
+	// Verify overridden function
+	oFirst.Val = "AB"
+	assert.Equal(t, oFirst.Val, Get(key))
+
+	// Verify fallthrough if nil returned
+	oFirst.Val = nil
+	assert.Equal(t, def, Get(key))
+
+	// Verify Set() has priority
+	set := "CD"
+	Set(key, set)
+	assert.Equal(t, set, Get(key))
+	oFirst.Val = "EF"
+	assert.Equal(t, set, Get(key))
+	Reset()
+	// Add overrider back because Reset() resets overriders
+	AddOverrider(oFirst)
+
+	// Verify multiple overriers: the last one should have precidence
+	oSecond := &overrider{
+		Key: key,
+	}
+	AddOverrider(oSecond)
+	oSecond.Val = "SECONDVALUE"
+	assert.Equal(t, oSecond.Val, Get(key))
+
+	// Verify fallback to first overrider if nil returned
+	oSecond.Val = nil
+	assert.Equal(t, oFirst.Val, Get(key))
+}
+
+func TestOverridersInts(t *testing.T) {
+	Reset()
+
+	key := "key"
+	value := 1234567
+	o := &overrider{
+		Key: key,
+	}
+	AddOverrider(o)
+
+	// Verify Get() returns int
+	o.Val = value
+	assert.Equal(t, value, Get(key))
+
+	// Verify GetInt() returns int
+	assert.Equal(t, value, GetInt(key))
+}
+
+func TestOverridersStrings(t *testing.T) {
+	Reset()
+
+	key := "key"
+	o := &overrider{
+		Key: key,
+	}
+	AddOverrider(o)
+
+	// Verify Get() returns string
+	o.Val = "12345"
+	assert.IsType(t, "", Get(key))
+
+	// Verify GetInt() returns int
+	assert.IsType(t, 12345, GetInt(key))
+	assert.Equal(t, 12345, GetInt(key))
+
+	// Verify GetFloat64() returns float64
+	o.Val = "123.45"
+	assert.IsType(t, 123.45, GetFloat64(key))
+	assert.Equal(t, 123.45, GetFloat64(key))
+
+	// Verify GetDuration() returns duration
+	durStr := "10s"
+	o.Val = durStr
+	expectedDur, _ := time.ParseDuration(durStr)
+	assert.IsType(t, expectedDur, GetDuration(key))
+	assert.Equal(t, expectedDur, GetDuration(key))
+}
+
 func TestParseNested(t *testing.T) {
 	type duration struct {
 		Delay time.Duration
