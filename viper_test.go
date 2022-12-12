@@ -2286,6 +2286,10 @@ type overrider struct {
 	Val interface{}
 }
 
+func (o *overrider) Set(lowerCaseKey string, value interface{}) {
+
+}
+
 func (o *overrider) Get(key string) interface{} {
 	if o.Key == key {
 		return o.Val
@@ -2353,6 +2357,21 @@ func TestOverridersInts(t *testing.T) {
 
 	// Verify GetInt() returns int
 	assert.Equal(t, value, GetInt(key))
+}
+
+func TestOverridersSet(t *testing.T) {
+	Reset()
+
+	key := "key"
+	o := &overrider{
+		Key: key,
+	}
+	AddOverrider(o)
+
+	expectedValue := "some new value"
+	Set(key, expectedValue)
+
+	assert.Equal(t, expectedValue, Get(key))
 }
 
 func TestOverridersStrings(t *testing.T) {
