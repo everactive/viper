@@ -2287,7 +2287,6 @@ type overrider struct {
 }
 
 func (o *overrider) Set(lowerCaseKey string, value interface{}) {
-
 }
 
 func (o *overrider) Get(key string) interface{} {
